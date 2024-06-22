@@ -44,6 +44,7 @@ const defaultPublicHost = "storage.googleapis.com"
 type Server struct {
 	backend      backend.Storage
 	uploads      sync.Map
+	mpus         sync.Map
 	transport    *muxTransport
 	ts           *httptest.Server
 	handler      http.Handler
