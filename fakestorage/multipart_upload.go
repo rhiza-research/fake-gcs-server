@@ -111,14 +111,16 @@ func formatCRC32C(crc32c uint32) string {
 	return crc32Str
 }
 
-func timeFromRequest(r *http.Request) (time.Time, error) {
+func timeFromRequest(r *http.Request) time.Time {
 	dateStr := r.Header.Get("Date")
+	if dateStr == "" {
+		return time.Now()
+	}
 	date, err := time.Parse(time.RFC1123, dateStr)
 	if err != nil {
-		return time.Time{}, err
+		return time.Now()
 	}
-
-	return date, nil
+	return date
 }
 
 func validateUploadObjectPartHashes(r *http.Request, crc32c string, md5 string) *xmlResponse {
@@ -250,13 +252,7 @@ func (s *Server) uploadObjectPart(r *http.Request) xmlResponse {
 		return *hashResp
 	}
 
-	lastModified, err := timeFromRequest(r)
-	if err != nil {
-		return xmlResponse{
-			status:       http.StatusBadRequest,
-			errorMessage: fmt.Sprintf("failed to parse date: %s", err),
-		}
-	}
+	lastModified := timeFromRequest(r)
 
 	part := objectPart{
 		PartNumber:   partNumber,

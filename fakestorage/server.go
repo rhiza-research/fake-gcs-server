@@ -293,6 +293,18 @@ func (s *Server) buildMuxer() {
 	handler.Path("/_internal/delete_all").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.deleteAllFiles))
 	// Internal - end
 
+	// JSON API download and upload routes - MUST be registered BEFORE XML API subrouter
+	// to prevent the XML API subrouter from incorrectly matching paths like /download/storage/v1/...
+	// (where it would treat "download" as bucket name)
+	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
+	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
+	handler.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
+
 	// XML API
 	bucketHost := fmt.Sprintf("{bucketName}.%s", s.publicHost)
 	xmlApiRouters := []*mux.Router{
@@ -329,14 +341,6 @@ func (s *Server) buildMuxer() {
 	}
 
 	handler.Host(bucketHost).Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
-	handler.Path("/download/storage/v1/b/{bucketName}/o/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
-	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.insertObject))
-	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
-	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodPut).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
-	handler.Path("/upload/storage/v1/b/{bucketName}/o").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
-	handler.Path("/upload/storage/v1/b/{bucketName}/o/").Methods(http.MethodDelete).HandlerFunc(jsonToHTTPHandler(s.deleteResumableUpload))
-	handler.Path("/upload/resumable/{uploadId}").Methods(http.MethodPut, http.MethodPost).HandlerFunc(jsonToHTTPHandler(s.uploadFileContent))
 
 	// Batch endpoint
 	handler.MatcherFunc(s.publicHostMatcher).Path("/batch/storage/v1").Methods(http.MethodPost).HandlerFunc(s.handleBatchCall)
@@ -345,6 +349,28 @@ func (s *Server) buildMuxer() {
 	handler.MatcherFunc(s.publicHostMatcher).Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	handler.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodGet, http.MethodHead).HandlerFunc(s.downloadObject)
 	handler.Host("{bucketName:.+}").Path("/{objectName:.+}").Methods(http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.xmlPutObject))
+
+	// Path-style XML Multipart Upload routes for any host (e.g., localhost:port)
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost).
+		Queries("uploads", "").
+		HandlerFunc(xmlToHTTPHandler(s.initiateMultipartUpload))
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPut).
+		Queries("partNumber", "{partNumber}").Queries("uploadId", "{uploadId}").
+		HandlerFunc(xmlToHTTPHandler(s.uploadObjectPart))
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPost).
+		Queries("uploadId", "{uploadId}").
+		HandlerFunc(xmlToHTTPHandler(s.completeMultipartUpload))
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodDelete).
+		Queries("uploadId", "{uploadId}").
+		HandlerFunc(xmlToHTTPHandler(s.abortMultipartUpload))
+	handler.Path("/{bucketName}").Methods(http.MethodGet).
+		Queries("uploads", "").
+		HandlerFunc(xmlToHTTPHandler(s.listMultipartUploads))
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodGet).
+		Queries("uploadId", "{uploadId}").
+		HandlerFunc(xmlToHTTPHandler(s.listObjectParts))
+	// Path-style simple PUT for any host (e.g., localhost:port)
+	handler.Path("/{bucketName}/{objectName:.+}").Methods(http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.xmlPutObject))
 
 	// Form Uploads
 	handler.Host(s.publicHost).Path("/{bucketName}").MatcherFunc(matchFormData).Methods(http.MethodPost, http.MethodPut).HandlerFunc(xmlToHTTPHandler(s.insertFormObject))
