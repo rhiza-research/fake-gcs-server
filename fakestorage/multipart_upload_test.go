@@ -244,7 +244,6 @@ func TestListMultipartUploads(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatal(err)
-
 		}
 	}
 
@@ -257,7 +256,6 @@ func TestListMultipartUploads(t *testing.T) {
 	}
 	if len(resp.Uploads) != initCount {
 		t.Errorf("unexpected number of uploads: got %v, want %v", len(resp.Uploads), initCount)
-
 	}
 }
 

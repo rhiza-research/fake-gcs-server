@@ -270,7 +270,8 @@ func (s *Server) uploadObjectPart(r *http.Request) xmlResponse {
 			"ETag": []string{etag},
 			"X-Goog-Hash": []string{
 				fmt.Sprintf("md5=%s", partMD5Str),
-				fmt.Sprintf("crc32c=%s", crc32Str)},
+				fmt.Sprintf("crc32c=%s", crc32Str),
+			},
 		},
 		// Upload Object Part does not include a response body.
 		data: nil,
