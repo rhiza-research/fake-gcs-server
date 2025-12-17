@@ -807,16 +807,14 @@ func TestListMultipartUploadsQueryParameters(t *testing.T) {
 		{"other-bucket", "other-file.txt"}, // Different bucket
 	}
 
-	var uploadIDs []string
 	for _, upload := range uploads {
-		resp, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
+		_, err := mpuc.InitiateMultipartUpload(ctx, &multipartclient.InitiateMultipartUploadRequest{
 			Bucket: upload.bucket,
 			Key:    upload.key,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		uploadIDs = append(uploadIDs, resp.UploadID)
 	}
 
 	// Test 1: List all uploads in test-bucket (should get 5, not 6)

@@ -755,6 +755,9 @@ func TestServerXMLPut(t *testing.T) {
 	}
 
 	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.Host = "test"
 	req.Header.Set("x-goog-copy-source", "bucket1/path")
 
@@ -768,6 +771,9 @@ func TestServerXMLPut(t *testing.T) {
 	}
 
 	req, err = http.NewRequest("PUT", server.URL()+"/bucket2/path2", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	req.Host = "test"
 	req.Header.Set("x-goog-copy-source", "bucket1/nonexistent")
 
